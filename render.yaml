@@ -1,0 +1,33 @@
+# render.yaml
+services:
+  - type: web
+    name: ec0301-api
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    preDeployCommand: npm run migrate
+    region: oregon
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ec0301-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: WABA_TOKEN
+        sync: false
+      - key: APP_BASE_URL
+        value: https://your-domain.onrender.com
+databases:
+  - name: ec0301-db
+    databaseName: ec0301
+

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "products": [
+    { "key": "carta", "title": "Carta descriptiva", "path": "a_carta/carta-descriptiva.html" },
+    { "key": "logistica-contrato", "title": "Contrato de aprendizaje", "path": "b_logistica/Contrato_aprendizaje.html" },
+    { "key": "logistica-asistencia", "title": "Lista de asistencia", "path": "b_logistica/asistencia.html" },
+    { "key": "logistica-materiales", "title": "Materiales y equipo", "path": "b_logistica/materiales-equipo.html" },
+    { "key": "eval-diagnostica", "title": "Evaluación diagnóstica", "path": "c_evaluaciones/diagnostica.html" },
+    { "key": "eval-formativa", "title": "Evaluación formativa", "path": "c_evaluaciones/formativa.html" },
+    { "key": "eval-sumativa", "title": "Evaluación sumativa", "path": "c_evaluaciones/sumativa.html" },
+    { "key": "eval-claves", "title": "Claves y ponderación", "path": "c_evaluaciones/claves-respuesta.html" },
+    { "key": "eval-satisfaccion", "title": "Satisfacción del curso", "path": "c_evaluaciones/satisfaccion.html" },
+    { "key": "manual-participante", "title": "Manual del participante", "path": "d_manuales/manual-participante.html" }
+    { "key": "manual-instructor", "title": "Manual del instructor", "path": "d_manuales/manual-instructor.html" }
+ ]
+}
