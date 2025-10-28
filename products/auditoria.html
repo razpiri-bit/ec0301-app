@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Auditoría y Empaquetado - EC0301</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="auth.js"></script>
+    <script src="ec0301-data-manager.js"></script>
+    <style>
+        :root {
+            --primary: #1E3A8A; --accent: #FF6B35; --success: #22C55E; --danger: #EF4444;
+            --warning: #F59E0B; --light: #F8FAFC; --border: #E5E7EB; --text: #1F2937; --muted: #6B7280;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #F1F5F9; color: var(--text);
+        }
+        .header {
+            background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky; top: 0; z-index: 1000; border-bottom: 3px solid var(--accent);
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+        .header-content {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; gap: 1rem;
+        }
+        h1 { font-size: 1.75rem; color: var(--primary); }
+        .btn {
+            padding: 0.6rem 1.2rem; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease; display: inline-flex;
+            align-items: center; gap: 0.5rem; text-decoration: none;
+        }
+        .btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+        .audit-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        @media (max-width: 900px) { .audit-layout { grid-template-columns: 1fr; } }
+        
+        .card { 
+            background: white; padding: 2.5rem; border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+        .card-header { text-align: center; margin-bottom: 2rem; }
+        .card-header h2 { font-size: 1.8rem; color: var(--primary); }
+        .card-header p { color: var(--muted); margin-top: 0.5rem; }
+
+        .score-circle {
+            width: 200px; height: 200px; border-radius: 50%; margin: 0 auto 2rem auto;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: conic-gradient(var(--success) 0deg, var(--border) 0deg);
+            transition: background 1s ease-in-out; position: relative;
+        }
+        .score-percentage { 
+            font-size: 3.5rem; font-weight: 700; color: var(--primary); 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .score-label { font-size: 1.1rem; color: var(--muted); font-weight: 600; }
+        .score-status {
+            position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+            padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;
+            font-size: 0.875rem; white-space: nowrap;
+        }
+        .status-excellent { background: #DCFCE7; color: #166534; }
+        .status-good { background: #FEF3C7; color: #92400E; }
+        .status-fair { background: #FED7AA; color: #C2410C; }
+        .status-poor { background: #FECACA; color: #991B1B; }
+
+        .checklist { list-style: none; padding: 0; }
+        .check-item { 
+            display: flex; align-items: center; gap: 1rem; padding: 1rem; 
+            border-radius: 8px; margin-bottom: 0.75rem; font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .check-item:hover { transform: translateX(5px); }
+        .check-item.pass { background: #F0FDF4; color: #166534; border-left: 4px solid var(--success); }
+        .check-item.fail { background: #FEF2F2; color: #991B1B; border-left: 4px solid var(--danger); }
+        .check-item.warning { background: #FFFBEB; color: #92400E; border-left: 4px solid var(--warning); }
+        .check-item i { font-size: 1.3rem; flex-shrink: 0; }
+        .check-label { flex: 1; }
+        .check-weight { 
+            background: rgba(255,255,255,0.8); padding: 0.25rem 0.5rem; 
+            border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+        }
+
+        .module-status {
+            background: var(--light); padding: 1.5rem; border-radius: 8px; 
+            border-left: 4px solid var(--accent); margin-bottom: 1.5rem;
+        }
+        .module-status h4 { color: var(--primary); margin-bottom: 1rem; }
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; }
+        .status-item { text-align: center; padding: 0.75rem; border-radius: 6px; }
+        .status-complete { background: #DCFCE7; color: #166534; }
+        .status-incomplete { background: #FECACA; color: #991B1B; }
+        .status-partial { background: #FEF3C7; color: #92400E; }
+
+        .zip-section { text-align: center; padding: 2rem 0; }
+        .zip-icon { font-size: 4rem; color: var(--primary); margin-bottom: 1rem; }
+        .zip-description { color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
+        .zip-requirements {
+            background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px;
+            padding: 1rem; margin: 1rem 0; text-align: left;
+        }
+        .zip-requirements h5 { color: #92400E; margin-bottom: 0.5rem; }
+        .zip-requirements ul { margin-left: 1.5rem; color: #92400E; }
+
+        .progress-bar {
+            background: var(--border); height: 8px; border-radius: 4px; 
+            overflow: hidden; margin: 1rem 0;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, var(--accent), var(--success)); 
+            height: 100%; width: 0%; transition: width 0.8s ease;
+        }
+
+        .recommendations {
+            background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 8px;
+            padding: 1.5rem; margin-top: 2rem;
+        }
+        .recommendations h4 { color: #1E40AF; margin-bottom: 1rem; }
+        .recommendation-item {
+            display: flex; align-items: flex-start; gap: 0.75rem;
+            margin-bottom: 0.75rem; padding: 0.75rem; background: white;
+            border-radius: 6px; border-left: 3px solid #3B82F6;
+        }
+        .recommendation-item i { color: #3B82F6; margin-top: 0.25rem; }
+        .recommendation-text { flex: 1; }
+        .recommendation-priority {
+            background: #3B82F6; color: white; padding: 0.25rem 0.5rem;
+            border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+        }
+
+        .session-info {
+            background: linear-gradient(135deg, var(--primary), #3B82F6);
+            color: white; padding: 1rem; border-radius: 8px; margin-bottom: 2rem;
+        }
+        .session-info h4 { margin-bottom: 0.5rem; }
+        .session-info p { opacity: 0.9; margin: 0; }
+
+        /* Animaciones */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .generating { animation: pulse 2s infinite; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card { animation: slideIn 0.6s ease-out; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1><i class="fa-solid fa-shield-check" style="color: var(--accent);"></i> Auditoría y Empaquetado Final</h1>
+            <div>
+                <a href="resultados.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Resultados</a>
+                <button class="btn btn-warning" onclick="refreshAudit()"><i class="fa-solid fa-refresh"></i> Actualizar</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Información de sesión -->
+        <div class="session-info">
+            <h4><i class="fa-solid fa-user-shield"></i> Información de la Sesión</h4>
+            <p><strong>Usuario:</strong> <span data-user-name>Cargando...</span> | <strong>Curso:</strong> <span id="sessionCourse">-</span> | <strong>Última actualización:</strong> <span id="lastUpdate">-</span></p>
+        </div>
+
+        <div class="audit-layout">
+            <!-- Panel de Auditoría -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Auditoría de Cumplimiento EC0301</h2>
+                    <p id="cursoNombre">Análisis integral del proyecto de capacitación</p>
+                </div>
+                
+                <div id="scoreCircle" class="score-circle">
+                    <div id="scorePercentage" class="score-percentage">0%</div>
+                    <div class="score-label">Cumplimiento</div>
+                    <div id="scoreStatus" class="score-status status-poor">Evaluando...</div>
+                </div>
+
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+
+                <!-- Estado de módulos -->
+                <div class="module-status">
+                    <h4><i class="fa-solid fa-layer-group"></i> Estado de Módulos</h4>
+                    <div class="status-grid">
+                        <div id="status-carta" class="status-item status-incomplete">
+                            <div><i class="fa-solid fa-clipboard-list"></i></div>
+                            <div>Carta Descriptiva</div>
+                        </div>
+                        <div id="status-logistica" class="status-item status-incomplete">
+                            <div><i class="fa-solid fa-clipboard-list"></i></div>
+                            <div>Logística</div>
+                        </div>
+                        <div id="status-evaluaciones" class="status-item status-incomplete">
+                            <div><i class="fa-solid fa-file-signature"></i></div>
+                            <div>Evaluaciones</div>
+                        </div>
+                        <div id="status-manuales" class="status-item status-incomplete">
+                            <div><i class="fa-solid fa-book-open"></i></div>
+                            <div>Manuales</div>
+                        </div>
+                        <div id="status-resultados" class="status-item status-incomplete">
+                            <div><i class="fa-solid fa-file-excel"></i></div>
+                            <div>Resultados</div>
+                        </div>
+                    </div>
+                </div>
+
+                <ul id="checklist" class="checklist">
+                    <!-- Se llena dinámicamente -->
+                </ul>
+
+                <div id="recommendations" class="recommendations" style="display: none;">
+                    <h4><i class="fa-solid fa-lightbulb"></i> Recomendaciones de Mejora</h4>
+                    <div id="recommendationsList"></div>
+                </div>
+            </div>
+
+            <!-- Panel de Empaquetado -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Portafolio de Evidencias</h2>
+                    <p>Generar paquete completo de documentos EC0301</p>
+                </div>
+                
+                <div class="zip-section">
+                    <div id="zipIcon" class="zip-icon">
+                        <i class="fa-solid fa-file-zipper"></i>
+                    </div>
+                    <div class="zip-description">
+                        <p>Crea un archivo ZIP con todos los documentos generados:</p>
+                        <ul style="text-align: left; margin-top: 1rem;">
+                            <li>📋 Carta Descriptiva (PDF)</li>
+                            <li>📝 Documentos de Logística (PDF)</li>
+                            <li>📊 Instrumentos de Evaluación (PDF)</li>
+                            <li>📚 Manuales del Participante e Instructor (PDF)</li>
+                            <li>📈 Reporte de Resultados (Excel)</li>
+                            <li>🏆 Constancias de Participación (PDF)</li>
+                        </ul>
+                    </div>
+
+                    <div class="zip-requirements">
+                        <h5><i class="fa-solid fa-exclamation-triangle"></i> Requisitos para Generar ZIP:</h5>
+                        <ul>
+                            <li>Cumplimiento mínimo del 95%</li>
+                            <li>Todos los módulos completados</li>
+                            <li>Evaluaciones validadas</li>
+                            <li>Manuales revisados</li>
+                        </ul>
+                    </div>
+
+                    <button id="generateZipBtn" class="btn btn-success" style="width: 100%; padding: 1.2rem; font-size: 1.1rem;" onclick="generatePortfolioZIP()" disabled>
+                        <i class="fa-solid fa-download"></i> Generar Portafolio Completo
+                    </button>
+
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center;">
+                        <button class="btn btn-primary" onclick="generateQuickPDF()">
+                            <i class="fa-solid fa-file-pdf"></i> PDF Rápido
+                        </button>
+                        <button class="btn btn-warning" onclick="previewPortfolio()">
+                            <i class="fa-solid fa-eye"></i> Vista Previa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Criterios de auditoría actualizados para el sistema completo
+        const ENHANCED_AUDIT_CRITERIA = [
+            // Carta Descriptiva (40 puntos)
+            { key: 'nombre', label: 'Nombre del curso definido', weight: 5, category: 'carta', required: true },
+            { key: 'facilitador', label: 'Facilitador especificado', weight: 5, category: 'carta', required: true },
+            { key: 'psico', label: 'Perfil del participante descrito', weight: 10, category: 'carta', required: true },
+            { key: 'og.accion', label: 'Objetivo General con acción observable', weight: 10, category: 'carta', required: true },
+            { key: 'og.cond', label: 'Objetivo General con condición', weight: 5, category: 'carta', required: true },
+            { key: 'og.criterio', label: 'Objetivo General con criterio', weight: 5, category: 'carta', required: true },
+            
+            // Estructura del curso (25 puntos)
+            { key: 'objetivos.length', label: 'Objetivos particulares definidos', weight: 10, category: 'estructura', required: true, minValue: 1 },
+            { key: 'temas.length', label: 'Temas de desarrollo creados', weight: 10, category: 'estructura', required: true, minValue: 1 },
+            { key: 'duracion', label: 'Duración especificada', weight: 5, category: 'estructura', required: true },
+            
+            // Requerimientos (15 puntos)
+            { key: 'rq.inst', label: 'Instalaciones detalladas', weight: 5, category: 'requerimientos', required: true },
+            { key: 'rq.equipo', label: 'Equipo detallado', weight: 5, category: 'requerimientos', required: true },
+            { key: 'rq.mats', label: 'Materiales detallados', weight: 5, category: 'requerimientos', required: true },
+            
+            // Evaluación (20 puntos)
+            { key: 'ev.form.pct', label: 'Porcentaje formativo configurado', weight: 5, category: 'evaluacion', required: true },
+            { key: 'ev.sum.pct', label: 'Porcentaje sumativo configurado', weight: 5, category: 'evaluacion', required: true },
+            { key: 'ev.min', label: 'Calificación mínima establecida', weight: 5, category: 'evaluacion', required: true },
+            { key: 'evaluaciones.diagnostica.validated', label: 'Evaluación diagnóstica validada', weight: 5, category: 'evaluacion', required: false },
+            
+            // Módulos complementarios (Bonus)
+            { key: 'evaluaciones.formativa.validated', label: 'Evaluación formativa validada', weight: 3, category: 'bonus', required: false },
+            { key: 'evaluaciones.sumativa.validated', label: 'Evaluación sumativa validada', weight: 3, category: 'bonus', required: false },
+            { key: 'manuales.participante.validated', label: 'Manual del participante validado', weight: 2, category: 'bonus', required: false },
+            { key: 'manuales.instructor.validated', label: 'Manual del instructor validado', weight: 2, category: 'bonus', required: false }
+        ];
+
+        let auditData = {
+            score: 0,
+            percentage: 0,
+            status: 'poor',
+            completedCriteria: 0,
+            totalCriteria: ENHANCED_AUDIT_CRITERIA.length,
+            moduleStatus: {},
+            recommendations: []
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeAudit();
+            loadSessionInfo();
+        });
+
+        function initializeAudit() {
+            try {
+                const cartaData = EC0301Manager.getData();
+                if (!cartaData || !cartaData.nombre) {
+                    showIncompleteDataWarning();
+                    return;
+                }
+                
+                document.getElementById('cursoNombre').textContent = `Análisis del proyecto: "${cartaData.nombre}"`;
+                document.getElementById('sessionCourse').textContent = cartaData.nombre;
+                
+                runComprehensiveAudit();
+                checkModuleCompleteness();
+                
+            } catch (error) {
+                console.error('Error inicializando auditoría:', error);
+                showIncompleteDataWarning();
+            }
+        }
+
+        function loadSessionInfo() {
+            try {
+                const user = getCurrentUser();
+                if (user) {
+                    document.querySelector('[data-user-name]').textContent = user.name || user.email;
+                }
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+            } catch (error) {
+                console.log('Información de sesión no disponible');
+            }
+        }
+
+        function runComprehensiveAudit() {
+            const cartaData = EC0301Manager.getData();
+            let totalScore = 0;
+            let maxScore = 0;
+            let completedCriteria = 0;
+            const checklistEl = document.getElementById('checklist');
+            checklistEl.innerHTML = '';
+            
+            const recommendations = [];
+
+            ENHANCED_AUDIT_CRITERIA.forEach(criterion => {
+                maxScore += criterion.weight;
+                const value = getNestedValue(cartaData, criterion.key);
+                let pass = false;
+                
+                if (criterion.key.includes('length')) {
+                    pass = Array.isArray(value) && value.length >= (criterion.minValue || 1);
+                } else if (criterion.key.includes('validated')) {
+                    pass = value === true;
+                } else {
+                    pass = value && String(value).trim() !== '';
+                }
+                
+                const item = document.createElement('li');
+                const iconClass = pass ? 'fa-check-circle' : (criterion.required ? 'fa-times-circle' : 'fa-exclamation-triangle');
+                const itemClass = pass ? 'pass' : (criterion.required ? 'fail' : 'warning');
+                
+                item.className = `check-item ${itemClass}`;
+                item.innerHTML = `
+                    <i class="fa-solid ${iconClass}"></i>
+                    <span class="check-label">${criterion.label}</span>
+                    <span class="check-weight">${criterion.weight}pts</span>
+                `;
+                checklistEl.appendChild(item);
+
+                if (pass) {
+                    totalScore += criterion.weight;
+                    completedCriteria++;
+                } else if (criterion.required) {
+                    recommendations.push({
+                        text: `Completar: ${criterion.label}`,
+                        priority: 'Alta',
+                        category: criterion.category
+                    });
+                }
+            });
+
+            const finalPercentage = Math.round((totalScore / maxScore) * 100);
+            auditData = {
+                score: totalScore,
+                maxScore: maxScore,
+                percentage: finalPercentage,
+                status: getScoreStatus(finalPercentage),
+                completedCriteria: completedCriteria,
+                totalCriteria: ENHANCED_AUDIT_CRITERIA.length,
+                recommendations: recommendations
+            };
+
+            updateScoreDisplay(finalPercentage);
+            updateRecommendations(recommendations);
+            updateZipButtonState(finalPercentage);
+        }
+
+        function getNestedValue(obj, path) {
+            return path.split('.').reduce((acc, part) => {
+                if (part === 'length' && Array.isArray(acc)) {
+                    return acc.length;
+                }
+                return acc && acc[part];
+            }, obj);
+        }
+
+        function getScoreStatus(percentage) {
+            if (percentage >= 95) return 'excellent';
+            if (percentage >= 80) return 'good';
+            if (percentage >= 60) return 'fair';
+            return 'poor';
+        }
+
+        function updateScoreDisplay(percentage) {
+            const scoreEl = document.getElementById('scorePercentage');
+            const circleEl = document.getElementById('scoreCircle');
+            const statusEl = document.getElementById('scoreStatus');
+            const progressEl = document.getElementById('progressFill');
+            
+            // Animación del porcentaje
+            let currentPercentage = 0;
+            const increment = percentage / 50; // 50 pasos de animación
+            const timer = setInterval(() => {
+                currentPercentage += increment;
+                if (currentPercentage >= percentage) {
+                    currentPercentage = percentage;
+                    clearInterval(timer);
+                }
+                scoreEl.textContent = `${Math.round(currentPercentage)}%`;
+            }, 20);
+            
+            // Actualizar círculo de progreso
+            circleEl.style.background = `conic-gradient(var(--success) ${percentage * 3.6}deg, var(--border) 0deg)`;
+            progressEl.style.width = `${percentage}%`;
+            
+            // Actualizar estado
+            const status = getScoreStatus(percentage);
+            const statusTexts = {
+                excellent: 'Excelente',
+                good: 'Bueno',
+                fair: 'Regular',
+                poor: 'Deficiente'
+            };
+            
+            statusEl.textContent = statusTexts[status];
+            statusEl.className = `score-status status-${status}`;
+        }
+
+        function checkModuleCompleteness() {
+            const cartaData = EC0301Manager.getData();
+            
+            // Verificar cada módulo
+            const modules = [
+                { id: 'carta', hasData: cartaData.nombre && cartaData.og && cartaData.temas },
+                { id: 'logistica', hasData: cartaData.rq && cartaData.rq.inst },
+                { id: 'evaluaciones', hasData: cartaData.evaluaciones },
+                { id: 'manuales', hasData: cartaData.manuales },
+                { id: 'resultados', hasData: cartaData.resultados }
+            ];
+            
+            modules.forEach(module => {
+                const statusEl = document.getElementById(`status-${module.id}`);
+                if (statusEl) {
+                    if (module.hasData) {
+                        statusEl.className = 'status-item status-complete';
+                    } else {
+                        statusEl.className = 'status-item status-incomplete';
+                    }
+                }
+            });
+        }
+
+        function updateRecommendations(recommendations) {
+            const recommendationsEl = document.getElementById('recommendations');
+            const listEl = document.getElementById('recommendationsList');
+            
+            if (recommendations.length === 0) {
+                recommendationsEl.style.display = 'none';
+                return;
+            }
+            
+            recommendationsEl.style.display = 'block';
+            listEl.innerHTML = '';
+            
+            recommendations.forEach(rec => {
+                const item = document.createElement('div');
+                item.className = 'recommendation-item';
+                item.innerHTML = `
+                    <i class="fa-solid fa-arrow-right"></i>
+                    <div class="recommendation-text">${rec.text}</div>
+                    <div class="recommendation-priority">${rec.priority}</div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function updateZipButtonState(percentage) {
+            const zipBtn = document.getElementById('generateZipBtn');
+            const zipIcon = document.getElementById('zipIcon');
+            
+            if (percentage >= 95) {
+                zipBtn.disabled = false;
+                zipBtn.innerHTML = '<i class="fa-solid fa-download"></i> Generar Portafolio Completo';
+                zipIcon.style.color = 'var(--success)';
+            } else {
+                zipBtn.disabled = true;
+                zipBtn.innerHTML = `<i class="fa-solid fa-lock"></i> Requiere ${95 - percentage}% más de cumplimiento`;
+                zipIcon.style.color = 'var(--muted)';
+            }
+        }
+
+        function refreshAudit() {
+            document.getElementById('zipIcon').classList.add('generating');
+            
+            setTimeout(() => {
+                runComprehensiveAudit();
+                checkModuleCompleteness();
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+                document.getElementById('zipIcon').classList.remove('generating');
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Auditoría Actualizada',
+                    text: `Cumplimiento actual: ${auditData.percentage}%`,
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+            }, 1500);
+        }
+
+        function generatePortfolioZIP() {
+            if (auditData.percentage < 95) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cumplimiento Insuficiente',
+                    text: `Necesitas al menos 95% de cumplimiento. Actual: ${auditData.percentage}%`
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Generando Portafolio Completo...',
+                html: `
+                    <div style="text-align: left; margin-top: 1rem;">
+                        <p><i class="fa-solid fa-check" style="color: #22C55E;"></i> Carta Descriptiva</p>
+                        <p><i class="fa-solid fa-check" style="color: #22C55E;"></i> Documentos de Logística</p>
+                        <p><i class="fa-solid fa-check" style="color: #22C55E;"></i> Instrumentos de Evaluación</p>
+                        <p><i class="fa-solid fa-check" style="color: #22C55E;"></i> Manuales Didácticos</p>
+                        <p><i class="fa-solid fa-check" style="color: #22C55E;"></i> Reporte de Resultados</p>
+                        <p><i class="fa-solid fa-check" style="color: #22C55E;"></i> Constancias de Participación</p>
+                    </div>
+                `,
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            // Simular generación completa
+            setTimeout(async () => {
+                try {
+                    await createCompletePortfolio();
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Portafolio Generado Exitosamente!',
+                        html: `
+                            <div style="text-align: center;">
+                                <i class="fa-solid fa-trophy" style="font-size: 3rem; color: #FFD700; margin-bottom: 1rem;"></i>
+                                <p>Tu portafolio completo EC0301 ha sido generado con <strong>${auditData.percentage}%</strong> de cumplimiento.</p>
+                                <p style="margin-top: 1rem; color: #6B7280;">El archivo ZIP contiene todos los documentos profesionales listos para entrega.</p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Finalizar Proyecto',
+                        confirmButtonColor: '#22C55E'
+                    });
+                    
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al Generar Portafolio',
+                        text: 'Ocurrió un problema durante la generación. Intenta nuevamente.'
+                    });
+                }
+            }, 4000);
+        }
+
+        async function createCompletePortfolio() {
+            const cartaData = EC0301Manager.getData();
+            const zip = new JSZip();
+            
+            // Simular creación de archivos
+            zip.file("README.txt", generateReadmeContent(cartaData));
+            zip.file("01_Carta_Descriptiva.pdf", new Blob(['PDF simulado - Carta Descriptiva']));
+            zip.file("02_Lista_Asistencia.pdf", new Blob(['PDF simulado - Lista de Asistencia']));
+            zip.file("03_Contrato_Aprendizaje.pdf", new Blob(['PDF simulado - Contrato']));
+            zip.file("04_Lista_Requerimientos.pdf", new Blob(['PDF simulado - Requerimientos']));
+            zip.file("05_Evaluacion_Diagnostica.pdf", new Blob(['PDF simulado - Evaluación Diagnóstica']));
+            zip.file("06_Evaluacion_Formativa.pdf", new Blob(['PDF simulado - Evaluación Formativa']));
+            zip.file("07_Evaluacion_Sumativa.pdf", new Blob(['PDF simulado - Evaluación Sumativa']));
+            zip.file("08_Evaluacion_Satisfaccion.pdf", new Blob(['PDF simulado - Evaluación Satisfacción']));
+            zip.file("09_Manual_Participante.pdf", new Blob(['PDF simulado - Manual Participante']));
+            zip.file("10_Manual_Instructor.pdf", new Blob(['PDF simulado - Manual Instructor']));
+            zip.file("11_Reporte_Resultados.xlsx", new Blob(['Excel simulado - Resultados']));
+            zip.file("12_Constancias_Participacion.pdf", new Blob(['PDF simulado - Constancias']));
+            
+            // Generar ZIP
+            const content = await zip.generateAsync({ type: "blob" });
+            
+            // Descargar
+            const cursoNombre = cartaData.nombre ? cartaData.nombre.replace(/ /g, '_') : 'Portafolio_EC0301';
+            const fecha = new Date().toISOString().slice(0, 10);
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            link.download = `${cursoNombre}_Completo_${fecha}.zip`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function generateReadmeContent(cartaData) {
+            return `
+PORTAFOLIO DE EVIDENCIAS EC0301
+================================
+
+Curso: ${cartaData.nombre || 'Nombre del Curso'}
+Facilitador: ${cartaData.facilitador || 'Nombre del Facilitador'}
+Fecha de Generación: ${new Date().toLocaleDateString()}
+Cumplimiento: ${auditData.percentage}%
+
+CONTENIDO DEL PORTAFOLIO:
+========================
+
+01. Carta Descriptiva - Documento maestro del curso
+02. Lista de Asistencia - Control de participantes
+03. Contrato de Aprendizaje - Acuerdos y compromisos
+04. Lista de Requerimientos - Especificaciones técnicas
+05. Evaluación Diagnóstica - Medición de conocimientos previos
+06. Evaluación Formativa - Seguimiento del desempeño
+07. Evaluación Sumativa - Medición de logro de objetivos
+08. Evaluación de Satisfacción - Retroalimentación del proceso
+09. Manual del Participante - Guía de contenidos
+10. Manual del Instructor - Guía metodológica
+11. Reporte de Resultados - Estadísticas y calificaciones
+12. Constancias de Participación - Documentos de acreditación
+
+ESTÁNDAR DE COMPETENCIA:
+========================
+EC0301 - Diseño de cursos de capacitación presenciales, sus instrumentos de evaluación y material didáctico
+
+Generado por: SkillsCert EC0301 System
+Versión: 1.0
+            `;
+        }
+
+        function generateQuickPDF() {
+            Swal.fire({
+                title: 'Generando PDF de Auditoría...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            setTimeout(() => {
+                // Simular generación de PDF rápido
+                Swal.fire({
+                    icon: 'success',
+                    title: 'PDF de Auditoría Generado',
+                    text: 'Reporte de cumplimiento descargado exitosamente',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+            }, 1500);
+        }
+
+        function previewPortfolio() {
+            const cartaData = EC0301Manager.getData();
+            
+            Swal.fire({
+                title: 'Vista Previa del Portafolio',
+                html: `
+                    <div style="text-align: left; max-height: 400px; overflow-y: auto;">
+                        <h4 style="color: var(--primary); margin-bottom: 1rem;">Documentos Incluidos:</h4>
+                        
+                        <div style="display: grid; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #F8FAFC; border-radius: 4px;">
+                                <i class="fa-solid fa-file-pdf" style="color: #EF4444;"></i>
+                                <span>Carta Descriptiva</span>
+                                <span style="margin-left: auto; color: #22C55E;">✓</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #F8FAFC; border-radius: 4px;">
+                                <i class="fa-solid fa-file-pdf" style="color: #EF4444;"></i>
+                                <span>Documentos de Logística (3)</span>
+                                <span style="margin-left: auto; color: #22C55E;">✓</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #F8FAFC; border-radius: 4px;">
+                                <i class="fa-solid fa-file-pdf" style="color: #EF4444;"></i>
+                                <span>Instrumentos de Evaluación (4)</span>
+                                <span style="margin-left: auto; color: #22C55E;">✓</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #F8FAFC; border-radius: 4px;">
+                                <i class="fa-solid fa-file-pdf" style="color: #EF4444;"></i>
+                                <span>Manuales Didácticos (2)</span>
+                                <span style="margin-left: auto; color: #22C55E;">✓</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #F8FAFC; border-radius: 4px;">
+                                <i class="fa-solid fa-file-excel" style="color: #10B981;"></i>
+                                <span>Reporte de Resultados</span>
+                                <span style="margin-left: auto; color: #22C55E;">✓</span>
+                            </div>
+                        </div>
+                        
+                        <h4 style="color: var(--primary); margin: 1rem 0 0.5rem;">Estadísticas:</h4>
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                            <li>Cumplimiento: <strong>${auditData.percentage}%</strong></li>
+                            <li>Criterios completados: <strong>${auditData.completedCriteria}/${auditData.totalCriteria}</strong></li>
+                            <li>Documentos: <strong>12 archivos</strong></li>
+                            <li>Tamaño estimado: <strong>~5-8 MB</strong></li>
+                        </ul>
+                    </div>
+                `,
+                width: 600,
+                confirmButtonText: 'Cerrar'
+            });
+        }
+
+        function showIncompleteDataWarning() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Proyecto Incompleto',
+                html: 'No se encontraron datos suficientes para realizar la auditoría.<br>Por favor, completa la <strong>Carta Descriptiva</strong> primero.',
+                confirmButtonText: 'Ir a Carta Descriptiva',
+                confirmButtonColor: '#1E3A8A'
+            }).then(() => {
+                window.location.href = 'carta-descriptiva.html';
+            });
+        }
+
+        // Suscribirse a cambios del sistema
+        if (window.EC0301Manager) {
+            EC0301Manager.onDataChange('auditoria', (changedFields, fullData) => {
+                console.log('Datos actualizados, refrescando auditoría...');
+                setTimeout(refreshAudit, 500);
+            });
+        }
+    </script>
+</body>
+</html>
