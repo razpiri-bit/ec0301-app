@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Evaluaciones - EC0301</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+    <script src="ec0301-data-manager.js"></script>
+    <style>
+        :root {
+            --primary: #1E3A8A; --accent: #FF6B35; --success: #22C55E; --warning: #F59E0B;
+            --light: #F8FAFC; --border: #E5E7EB; --text: #1F2937; --muted: #6B7280;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #F1F5F9; color: var(--text);
+        }
+        .header {
+            background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky; top: 0; z-index: 1000; border-bottom: 3px solid var(--accent);
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+        .header-content {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; gap: 1rem;
+        }
+        h1 { font-size: 1.75rem; color: var(--primary); }
+        .btn {
+            padding: 0.6rem 1.2rem; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease; display: inline-flex;
+            align-items: center; gap: 0.5rem; text-decoration: none;
+        }
+        .btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-ai { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+
+        .tabs {
+            display: flex; background: var(--primary); padding: 0.5rem; border-radius: 10px;
+            justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 0.25rem;
+        }
+        .tab-button {
+            padding: 0.75rem 1.25rem; cursor: pointer; background: none; border: none;
+            font-size: 1rem; font-weight: 600; color: white; opacity: 0.7;
+            border-radius: 8px; transition: all 0.3s ease;
+        }
+        .tab-button.active { background: white; color: var(--primary); opacity: 1; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .evaluation-container {
+            background: white; padding: 2.5rem; border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08); margin-bottom: 2rem;
+        }
+        .document-header { text-align: center; margin-bottom: 2rem; }
+        .document-header h2 { color: var(--primary); font-size: 1.8rem; text-transform: uppercase; }
+        .document-header h3 { color: var(--muted); font-weight: 500; font-size: 1.2rem; margin-top: 0.5rem; }
+        .document-info {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;
+            text-align: left; border: 1px solid var(--border); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;
+        }
+        .document-info strong { color: var(--primary); }
+
+        .generation-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem;
+        }
+        .generation-panel h3 { margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .generation-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        .generation-controls label { color: white; font-weight: 600; }
+        .generation-controls input, .generation-controls select {
+            padding: 0.5rem; border: none; border-radius: 8px; background: rgba(255,255,255,0.9);
+        }
+
+        .questions-container { margin-top: 2rem; }
+        .question-item {
+            background: var(--light); border: 1px solid var(--border); border-radius: 8px;
+            padding: 1.5rem; margin-bottom: 1rem; position: relative;
+        }
+        .question-item.editing { border-color: var(--accent); background: #FFF7ED; }
+        .question-number { 
+            position: absolute; top: -10px; left: 15px; background: var(--primary);
+            color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: 600;
+        }
+        .question-text { 
+            font-weight: 600; margin: 1rem 0; padding-right: 100px;
+            min-height: 50px; border: none; background: transparent; width: 100%;
+            resize: vertical;
+        }
+        .question-text:focus { outline: 2px solid var(--accent); border-radius: 4px; }
+        .options-list { margin: 1rem 0; }
+        .option-item {
+            display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;
+            padding: 0.5rem; border-radius: 6px; transition: background 0.2s;
+        }
+        .option-item:hover { background: rgba(30, 58, 138, 0.05); }
+        .option-item.correct { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); }
+        .option-letter {
+            background: var(--primary); color: white; width: 25px; height: 25px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 0.875rem; flex-shrink: 0;
+        }
+        .option-text {
+            flex: 1; padding: 0.5rem; border: none; background: transparent;
+            font-size: 0.95rem; resize: none; min-height: 40px;
+        }
+        .option-text:focus { outline: 1px solid var(--accent); border-radius: 4px; }
+        .option-correct {
+            width: 20px; height: 20px; cursor: pointer;
+        }
+
+        .question-actions {
+            position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem;
+        }
+        .action-btn {
+            width: 35px; height: 35px; border: none; border-radius: 50%;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .edit-btn { background: var(--warning); color: white; }
+        .delete-btn { background: #EF4444; color: white; }
+        .save-btn { background: var(--success); color: white; }
+        .cancel-btn { background: var(--muted); color: white; }
+
+        .formativa-container { margin-top: 2rem; }
+        .evaluation-criteria { 
+            background: var(--light); padding: 1.5rem; border-radius: 8px; 
+            border-left: 4px solid var(--accent); margin-bottom: 1rem;
+        }
+        .criteria-title { color: var(--primary); font-weight: 600; margin-bottom: 0.5rem; }
+        .criteria-description { color: var(--text); line-height: 1.6; }
+
+        .satisfaction-scale { 
+            display: grid; grid-template-columns: 3fr 1fr 1fr 1fr 1fr; gap: 0.5rem;
+            align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border);
+        }
+        .satisfaction-scale:nth-child(even) { background: var(--light); }
+        .scale-header { 
+            display: grid; grid-template-columns: 3fr 1fr 1fr 1fr 1fr; gap: 0.5rem;
+            font-weight: 600; padding: 1rem 0.75rem; background: var(--primary); color: white;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .ai-suggestions {
+            background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px;
+            padding: 1rem; margin: 1rem 0;
+        }
+        .ai-suggestions h4 { color: #92400E; margin-bottom: 0.5rem; }
+        .ai-suggestions p { color: #92400E; font-size: 0.9rem; }
+
+        /* Estados de generación */
+        .generation-status { 
+            text-align: center; padding: 3rem; color: var(--muted);
+        }
+        .generation-status.loading { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border-radius: 16px;
+        }
+        .generation-status .spinner {
+            width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white; border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 1rem;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .generation-controls { flex-direction: column; align-items: stretch; }
+            .question-actions { position: static; margin-top: 1rem; justify-content: center; }
+            .document-info { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1><i class="fa-solid fa-file-signature" style="color: var(--accent);"></i> Módulo de Evaluaciones</h1>
+            <div>
+                <a href="logistica.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Logística</a>
+                <a href="manuales.html" class="btn btn-success"><i class="fa-solid fa-arrow-right"></i> Manuales</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('diagnostica')">
+                <i class="fa-solid fa-stethoscope"></i> Diagnóstica
+            </button>
+            <button class="tab-button" onclick="showTab('formativa')">
+                <i class="fa-solid fa-eye"></i> Formativa
+            </button>
+            <button class="tab-button" onclick="showTab('sumativa')">
+                <i class="fa-solid fa-graduation-cap"></i> Sumativa
+            </button>
+            <button class="tab-button" onclick="showTab('satisfaccion')">
+                <i class="fa-solid fa-star"></i> Satisfacción
+            </button>
+        </div>
+
+        <!-- EVALUACIÓN DIAGNÓSTICA -->
+        <div id="diagnostica" class="tab-content active">
+            <div class="evaluation-container">
+                <div class="document-header">
+                    <h2>EVALUACIÓN DIAGNÓSTICA</h2>
+                    <h3>Cuestionario de Conocimientos Previos</h3>
+                </div>
+                <div class="document-info">
+                    <div><strong>Curso:</strong> <span id="diag-curso">-</span></div>
+                    <div><strong>Facilitador:</strong> <span id="diag-facilitador">-</span></div>
+                    <div><strong>Lugar:</strong> <span id="diag-lugar">-</span></div>
+                    <div><strong>Fecha:</strong> <span id="diag-fechas">-</span></div>
+                </div>
+
+                <div class="generation-panel">
+                    <h3><i class="fa-solid fa-robot"></i> Generador de Preguntas IA</h3>
+                    <div class="generation-controls">
+                        <div>
+                            <label>Número de preguntas:</label>
+                            <input type="number" id="diag-num-preguntas" value="5" min="3" max="15">
+                        </div>
+                        <div>
+                            <label>Nivel de dificultad:</label>
+                            <select id="diag-dificultad">
+                                <option value="basico">Básico</option>
+                                <option value="intermedio">Intermedio</option>
+                                <option value="avanzado">Avanzado</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-ai" onclick="generateQuestions('diagnostica')">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Preguntas
+                        </button>
+                        <button class="btn btn-success" onclick="validateAndSave('diagnostica')" style="display: none;" id="diag-save-btn">
+                            <i class="fa-solid fa-check"></i> Validar y Guardar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="diag-questions-container" class="questions-container">
+                    <div class="generation-status">
+                        <i class="fa-solid fa-lightbulb" style="font-size: 3rem; color: var(--muted);"></i>
+                        <h3>Genera preguntas diagnósticas con IA</h3>
+                        <p>Basadas en los temas y objetivos de tu carta descriptiva</p>
+                    </div>
+                </div>
+
+                <div class="ai-suggestions" style="display: none;" id="diag-suggestions">
+                    <h4><i class="fa-solid fa-lightbulb"></i> Sugerencias de IA</h4>
+                    <p>Las preguntas están diseñadas para evaluar conocimientos previos. Puedes editarlas antes de validar.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- EVALUACIÓN FORMATIVA -->
+        <div id="formativa" class="tab-content">
+            <div class="evaluation-container">
+                <div class="document-header">
+                    <h2>EVALUACIÓN FORMATIVA</h2>
+                    <h3>Guía de Observación del Desempeño</h3>
+                </div>
+                <div class="document-info">
+                    <div><strong>Curso:</strong> <span id="form-curso">-</span></div>
+                    <div><strong>Facilitador:</strong> <span id="form-facilitador">-</span></div>
+                    <div><strong>Lugar:</strong> <span id="form-lugar">-</span></div>
+                    <div><strong>Ponderación:</strong> <span id="form-ponderacion">40%</span></div>
+                </div>
+
+                <div class="generation-panel">
+                    <h3><i class="fa-solid fa-robot"></i> Generador de Criterios de Observación</h3>
+                    <div class="generation-controls">
+                        <div>
+                            <label>Enfocar en:</label>
+                            <select id="form-enfoque">
+                                <option value="habilidades">Habilidades prácticas</option>
+                                <option value="actitudes">Actitudes y valores</option>
+                                <option value="procesos">Procesos y metodologías</option>
+                                <option value="integral">Evaluación integral</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-ai" onclick="generateFormativa()">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Criterios
+                        </button>
+                        <button class="btn btn-success" onclick="validateAndSave('formativa')" style="display: none;" id="form-save-btn">
+                            <i class="fa-solid fa-check"></i> Validar y Guardar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="form-criteria-container" class="formativa-container">
+                    <div class="generation-status">
+                        <i class="fa-solid fa-eye" style="font-size: 3rem; color: var(--muted);"></i>
+                        <h3>Genera criterios de observación con IA</h3>
+                        <p>Basados en los objetivos particulares de tu curso</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EVALUACIÓN SUMATIVA -->
+        <div id="sumativa" class="tab-content">
+            <div class="evaluation-container">
+                <div class="document-header">
+                    <h2>EVALUACIÓN SUMATIVA</h2>
+                    <h3>Examen Final de Conocimientos</h3>
+                </div>
+                <div class="document-info">
+                    <div><strong>Curso:</strong> <span id="sum-curso">-</span></div>
+                    <div><strong>Facilitador:</strong> <span id="sum-facilitador">-</span></div>
+                    <div><strong>Lugar:</strong> <span id="sum-lugar">-</span></div>
+                    <div><strong>Ponderación:</strong> <span id="sum-ponderacion">60%</span></div>
+                </div>
+
+                <div class="generation-panel">
+                    <h3><i class="fa-solid fa-robot"></i> Generador de Examen Final</h3>
+                    <div class="generation-controls">
+                        <div>
+                            <label>Número de preguntas:</label>
+                            <input type="number" id="sum-num-preguntas" value="10" min="5" max="25">
+                        </div>
+                        <div>
+                            <label>Tipo de evaluación:</label>
+                            <select id="sum-tipo">
+                                <option value="conocimientos">Conocimientos teóricos</option>
+                                <option value="aplicacion">Aplicación práctica</option>
+                                <option value="analisis">Análisis y síntesis</option>
+                                <option value="mixto">Evaluación mixta</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-ai" onclick="generateQuestions('sumativa')">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Examen
+                        </button>
+                        <button class="btn btn-success" onclick="validateAndSave('sumativa')" style="display: none;" id="sum-save-btn">
+                            <i class="fa-solid fa-check"></i> Validar y Guardar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="sum-questions-container" class="questions-container">
+                    <div class="generation-status">
+                        <i class="fa-solid fa-graduation-cap" style="font-size: 3rem; color: var(--muted);"></i>
+                        <h3>Genera examen final con IA</h3>
+                        <p>Evaluación sumativa basada en todos los temas del curso</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EVALUACIÓN DE SATISFACCIÓN -->
+        <div id="satisfaccion" class="tab-content">
+            <div class="evaluation-container">
+                <div class="document-header">
+                    <h2>EVALUACIÓN DE SATISFACCIÓN</h2>
+                    <h3>Encuesta de Reacción del Participante</h3>
+                </div>
+                <div class="document-info">
+                    <div><strong>Curso:</strong> <span id="sat-curso">-</span></div>
+                    <div><strong>Facilitador:</strong> <span id="sat-facilitador">-</span></div>
+                    <div><strong>Lugar:</strong> <span id="sat-lugar">-</span></div>
+                    <div><strong>Aplicación:</strong> Al final del curso</div>
+                </div>
+
+                <div class="generation-panel">
+                    <h3><i class="fa-solid fa-robot"></i> Encuesta de Satisfacción Estándar</h3>
+                    <div class="generation-controls">
+                        <button class="btn btn-ai" onclick="generateSatisfaccion()">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Encuesta
+                        </button>
+                        <button class="btn btn-success" onclick="validateAndSave('satisfaccion')" style="display: none;" id="sat-save-btn">
+                            <i class="fa-solid fa-check"></i> Validar y Guardar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="sat-survey-container">
+                    <div class="generation-status">
+                        <i class="fa-solid fa-star" style="font-size: 3rem; color: var(--muted);"></i>
+                        <h3>Genera encuesta de satisfacción</h3>
+                        <p>Formato estándar para medir la reacción de los participantes</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentEditingQuestion = null;
+        let evaluationData = {
+            diagnostica: { questions: [], validated: false },
+            formativa: { criteria: [], validated: false },
+            sumativa: { questions: [], validated: false },
+            satisfaccion: { items: [], validated: false }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEvaluationData();
+        });
+
+        function loadEvaluationData() {
+            try {
+                const moduleData = EC0301Manager.getModuleData('evaluaciones');
+                
+                // Cargar información básica en todos los tabs
+                ['diag', 'form', 'sum', 'sat'].forEach(prefix => {
+                    document.getElementById(`${prefix}-curso`).textContent = moduleData.nombre || 'Nombre del Curso';
+                    document.getElementById(`${prefix}-facilitador`).textContent = moduleData.facilitador || 'Nombre del Facilitador';
+                    document.getElementById(`${prefix}-lugar`).textContent = moduleData.lugar || 'Lugar de Impartición';
+                });
+
+                // Fechas solo para algunos
+                ['diag'].forEach(prefix => {
+                    if (document.getElementById(`${prefix}-fechas`)) {
+                        document.getElementById(`${prefix}-fechas`).textContent = moduleData.fechas || 'Fechas por definir';
+                    }
+                });
+
+                // Ponderaciones
+                if (moduleData.evaluacion) {
+                    document.getElementById('form-ponderacion').textContent = moduleData.evaluacion.formativa.porcentaje + '%';
+                    document.getElementById('sum-ponderacion').textContent = moduleData.evaluacion.sumativa.porcentaje + '%';
+                }
+
+            } catch (error) {
+                console.error('Error cargando datos de evaluaciones:', error);
+                showMissingDataAlert();
+            }
+        }
+
+        function showMissingDataAlert() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Datos Incompletos',
+                html: 'No se encontraron datos de la carta descriptiva.<br>Por favor, completa primero la <strong>Carta Descriptiva</strong>.',
+                confirmButtonText: 'Ir a Carta Descriptiva',
+                confirmButtonColor: '#1E3A8A'
+            }).then(() => {
+                window.location.href = 'carta-descriptiva.html';
+            });
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function generateQuestions(type) {
+            const numPreguntas = document.getElementById(`${type === 'diagnostica' ? 'diag' : 'sum'}-num-preguntas`).value;
+            const container = document.getElementById(`${type === 'diagnostica' ? 'diag' : 'sum'}-questions-container`);
+            const saveBtn = document.getElementById(`${type === 'diagnostica' ? 'diag' : 'sum'}-save-btn`);
+            
+            // Mostrar estado de carga
+            container.innerHTML = `
+                <div class="generation-status loading">
+                    <div class="spinner"></div>
+                    <h3>Generando ${numPreguntas} preguntas con IA...</h3>
+                    <p>Analizando objetivos y temario de la carta descriptiva</p>
+                </div>
+            `;
+
+            // Simular generación de preguntas por IA
+            setTimeout(() => {
+                const questions = generateQuestionsWithAI(type, parseInt(numPreguntas));
+                evaluationData[type].questions = questions;
+                displayQuestions(type, questions);
+                saveBtn.style.display = 'inline-flex';
+                
+                // Mostrar sugerencias
+                const suggestionsEl = document.getElementById(`${type === 'diagnostica' ? 'diag' : 'sum'}-suggestions`);
+                if (suggestionsEl) {
+                    suggestionsEl.style.display = 'block';
+                }
+            }, 3000);
+        }
+
+        function generateQuestionsWithAI(type, numPreguntas) {
+            const cartaData = EC0301Manager.getData();
+            const questions = [];
+
+            // Simulación de generación basada en temas de la carta descriptiva
+            const temas = cartaData.temas || [];
+            const objetivos = cartaData.objetivos || [];
+
+            const questionTemplates = {
+                diagnostica: [
+                    {
+                        pregunta: "¿Cuál es la importancia de [CONCEPTO] en el contexto de [TEMA]?",
+                        opciones: ["Es fundamental para...", "No tiene relevancia...", "Solo se aplica en...", "Es opcional pero..."],
+                        correcta: 0
+                    },
+                    {
+                        pregunta: "En el proceso de [TEMA], el primer paso consiste en:",
+                        opciones: ["Identificar objetivos", "Recopilar recursos", "Evaluar resultados", "Diseñar estrategias"],
+                        correcta: 0
+                    }
+                ],
+                sumativa: [
+                    {
+                        pregunta: "Según los principios estudiados en [TEMA], ¿cuál es la mejor práctica para [PROCESO]?",
+                        opciones: ["Aplicar metodología sistemática", "Usar técnicas tradicionales", "Improvisar según contexto", "Seguir tendencias actuales"],
+                        correcta: 0
+                    },
+                    {
+                        pregunta: "El objetivo principal de [CONCEPTO] en el diseño de [TEMA] es:",
+                        opciones: ["Optimizar recursos disponibles", "Reducir costos operativos", "Mejorar la experiencia", "Acelerar procesos"],
+                        correcta: 2
+                    }
+                ]
+            };
+
+            for (let i = 0; i < numPreguntas; i++) {
+                const template = questionTemplates[type][i % questionTemplates[type].length];
+                const tema = temas[i % temas.length]?.nombre || 'desarrollo de competencias';
+                
+                const question = {
+                    id: `${type}_${i + 1}`,
+                    numero: i + 1,
+                    pregunta: template.pregunta.replace('[TEMA]', tema).replace('[CONCEPTO]', 'metodología').replace('[PROCESO]', 'implementación'),
+                    opciones: template.opciones.map((opcion, index) => ({
+                        letra: String.fromCharCode(65 + index), // A, B, C, D
+                        texto: opcion,
+                        esCorrecta: index === template.correcta
+                    })),
+                    temaRelacionado: tema,
+                    nivelBloom: type === 'diagnostica' ? 'Conocimiento' : 'Aplicación'
+                };
+                
+                questions.push(question);
+            }
+
+            return questions;
+        }
+
+        function displayQuestions(type, questions) {
+            const container = document.getElementById(`${type === 'diagnostica' ? 'diag' : 'sum'}-questions-container`);
+            container.innerHTML = '';
+
+            questions.forEach((question) => {
+                const questionEl = createQuestionElement(question, type);
+                container.appendChild(questionEl);
+            });
+        }
+
+        function createQuestionElement(question, type) {
+            const div = document.createElement('div');
+            div.className = 'question-item';
+            div.dataset.questionId = question.id;
+            
+            div.innerHTML = `
+                <div class="question-number">${question.numero}</div>
+                <div class="question-actions">
+                    <button class="action-btn edit-btn" onclick="editQuestion('${question.id}', '${type}')" title="Editar">
+                        <i class="fa-solid fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete-btn" onclick="deleteQuestion('${question.id}', '${type}')" title="Eliminar">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                    <button class="action-btn save-btn" onclick="saveQuestion('${question.id}', '${type}')" title="Guardar" style="display: none;">
+                        <i class="fa-solid fa-save"></i>
+                    </button>
+                    <button class="action-btn cancel-btn" onclick="cancelEdit('${question.id}', '${type}')" title="Cancelar" style="display: none;">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+                <textarea class="question-text" readonly>${question.pregunta}</textarea>
+                <div class="options-list">
+                    ${question.opciones.map(opcion => `
+                        <div class="option-item ${opcion.esCorrecta ? 'correct' : ''}">
+                            <div class="option-letter">${opcion.letra}</div>
+                            <textarea class="option-text" readonly>${opcion.texto}</textarea>
+                            <input type="radio" name="correct_${question.id}" class="option-correct" 
+                                   ${opcion.esCorrecta ? 'checked' : ''} value="${opcion.letra}" disabled>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--muted);">
+                    <strong>Tema:</strong> ${question.temaRelacionado} | 
+                    <strong>Nivel:</strong> ${question.nivelBloom}
+                </div>
+            `;
+            
+            return div;
+        }
+
+        function editQuestion(questionId, type) {
+            if (currentEditingQuestion && currentEditingQuestion !== questionId) {
+                cancelEdit(currentEditingQuestion, type);
+            }
+            
+            currentEditingQuestion = questionId;
+            const questionEl = document.querySelector(`[data-question-id="${questionId}"]`);
+            questionEl.classList.add('editing');
+            
+            // Habilitar edición
+            questionEl.querySelector('.question-text').readOnly = false;
+            questionEl.querySelectorAll('.option-text').forEach(el => el.readOnly = false);
+            questionEl.querySelectorAll('.option-correct').forEach(el => el.disabled = false);
+            
+            // Cambiar botones
+            questionEl.querySelector('.edit-btn').style.display = 'none';
+            questionEl.querySelector('.delete-btn').style.display = 'none';
+            questionEl.querySelector('.save-btn').style.display = 'flex';
+            questionEl.querySelector('.cancel-btn').style.display = 'flex';
+        }
+
+        function saveQuestion(questionId, type) {
+            const questionEl = document.querySelector(`[data-question-id="${questionId}"]`);
+            
+            // Obtener datos editados
+            const preguntaText = questionEl.querySelector('.question-text').value;
+            const opciones = Array.from(questionEl.querySelectorAll('.option-item')).map(item => ({
+                letra: item.querySelector('.option-letter').textContent,
+                texto: item.querySelector('.option-text').value,
+                esCorrecta: item.querySelector('.option-correct').checked
+            }));
+            
+            // Validar que haya una respuesta correcta
+            const correctas = opciones.filter(op => op.esCorrecta);
+            if (correctas.length !== 1) {
+                Swal.fire('Error', 'Debe haber exactamente una respuesta correcta', 'error');
+                return;
+            }
+            
+            // Actualizar datos
+            const questionIndex = evaluationData[type].questions.findIndex(q => q.id === questionId);
+            if (questionIndex !== -1) {
+                evaluationData[type].questions[questionIndex].pregunta = preguntaText;
+                evaluationData[type].questions[questionIndex].opciones = opciones;
+            }
+            
+            // Salir del modo edición
+            cancelEdit(questionId, type);
+            
+            // Actualizar vista
+            updateQuestionDisplay(questionEl, preguntaText, opciones);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Pregunta actualizada',
+                timer: 1500,
+                timerProgressBar: true
+            });
+        }
+
+        function cancelEdit(questionId, type) {
+            const questionEl = document.querySelector(`[data-question-id="${questionId}"]`);
+            questionEl.classList.remove('editing');
+            
+            // Deshabilitar edición
+            questionEl.querySelector('.question-text').readOnly = true;
+            questionEl.querySelectorAll('.option-text').forEach(el => el.readOnly = true);
+            questionEl.querySelectorAll('.option-correct').forEach(el => el.disabled = true);
+            
+            // Restaurar botones
+            questionEl.querySelector('.edit-btn').style.display = 'flex';
+            questionEl.querySelector('.delete-btn').style.display = 'flex';
+            questionEl.querySelector('.save-btn').style.display = 'none';
+            questionEl.querySelector('.cancel-btn').style.display = 'none';
+            
+            currentEditingQuestion = null;
+        }
+
+        function deleteQuestion(questionId, type) {
+            Swal.fire({
+                title: '¿Eliminar pregunta?',
+                text: 'Esta acción no se puede deshacer',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Eliminar de datos
+                    evaluationData[type].questions = evaluationData[type].questions.filter(q => q.id !== questionId);
+                    
+                    // Eliminar del DOM
+                    document.querySelector(`[data-question-id="${questionId}"]`).remove();
+                    
+                    // Renumerar preguntas
+                    renumberQuestions(type);
+                    
+                    Swal.fire('Eliminada', 'La pregunta ha sido eliminada', 'success');
+                }
+            });
+        }
+
+        function renumberQuestions(type) {
+            const container = document.getElementById(`${type === 'diagnostica' ? 'diag' : 'sum'}-questions-container`);
+            const questions = container.querySelectorAll('.question-item');
+            
+            questions.forEach((questionEl, index) => {
+                questionEl.querySelector('.question-number').textContent = index + 1;
+                
+                // Actualizar datos
+                const questionId = questionEl.dataset.questionId;
+                const questionIndex = evaluationData[type].questions.findIndex(q => q.id === questionId);
+                if (questionIndex !== -1) {
+                    evaluationData[type].questions[questionIndex].numero = index + 1;
+                }
+            });
+        }
+
+        function updateQuestionDisplay(questionEl, pregunta, opciones) {
+            questionEl.querySelector('.question-text').value = pregunta;
+            
+            const optionItems = questionEl.querySelectorAll('.option-item');
+            opciones.forEach((opcion, index) => {
+                const item = optionItems[index];
+                item.querySelector('.option-text').value = opcion.texto;
+                item.querySelector('.option-correct').checked = opcion.esCorrecta;
+                
+                if (opcion.esCorrecta) {
+                    item.classList.add('correct');
+                } else {
+                    item.classList.remove('correct');
+                }
+            });
+        }
+
+        function generateFormativa() {
+            const container = document.getElementById('form-criteria-container');
+            const saveBtn = document.getElementById('form-save-btn');
+            
+            container.innerHTML = `
+                <div class="generation-status loading">
+                    <div class="spinner"></div>
+                    <h3>Generando criterios de observación...</h3>
+                    <p>Basados en los objetivos particulares del curso</p>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const criteria = generateFormativaCriteria();
+                evaluationData.formativa.criteria = criteria;
+                displayFormativaCriteria(criteria);
+                saveBtn.style.display = 'inline-flex';
+            }, 2500);
+        }
+
+        function generateFormativaCriteria() {
+            const cartaData = EC0301Manager.getData();
+            const objetivos = cartaData.objetivos || [];
+            
+            const criteriaTemplates = [
+                {
+                    titulo: "Aplicación de Metodología",
+                    descripcion: "El participante demuestra dominio en la aplicación de la metodología enseñada, siguiendo los pasos establecidos de manera sistemática."
+                },
+                {
+                    titulo: "Trabajo en Equipo",
+                    descripcion: "Participa activamente en actividades grupales, respeta las opiniones de otros y contribuye constructivamente a los objetivos comunes."
+                },
+                {
+                    titulo: "Resolución de Problemas",
+                    descripcion: "Identifica problemas potenciales, propone soluciones viables y las implementa de manera efectiva durante las actividades prácticas."
+                },
+                {
+                    titulo: "Comunicación Efectiva",
+                    descripcion: "Expresa ideas de forma clara y coherente, tanto oral como escrita, adaptándose al contexto y audiencia correspondiente."
+                },
+                {
+                    titulo: "Actitud Profesional",
+                    descripcion: "Mantiene una actitud positiva, responsable y ética durante todas las actividades del curso, demostrando compromiso con el aprendizaje."
+                }
+            ];
+
+            return criteriaTemplates;
+        }
+
+        function displayFormativaCriteria(criteria) {
+            const container = document.getElementById('form-criteria-container');
+            container.innerHTML = `
+                <h3 style="color: var(--primary); margin-bottom: 1.5rem;">Criterios de Evaluación Formativa</h3>
+                <div style="margin-bottom: 2rem; padding: 1rem; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px;">
+                    <h4 style="color: #92400E; margin-bottom: 0.5rem;">Instrucciones para el Facilitador:</h4>
+                    <p style="color: #92400E; margin: 0;">Observe el desempeño de cada participante durante las actividades prácticas y marque el nivel de logro correspondiente.</p>
+                </div>
+                ${criteria.map(criterio => `
+                    <div class="evaluation-criteria">
+                        <div class="criteria-title">${criterio.titulo}</div>
+                        <div class="criteria-description">${criterio.descripcion}</div>
+                        <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem; text-align: center; font-size: 0.875rem;">
+                            <div style="background: #DCFCE7; padding: 0.5rem; border-radius: 4px;"><strong>Excelente (4)</strong></div>
+                            <div style="background: #FEF3C7; padding: 0.5rem; border-radius: 4px;"><strong>Bueno (3)</strong></div>
+                            <div style="background: #FED7AA; padding: 0.5rem; border-radius: 4px;"><strong>Regular (2)</strong></div>
+                            <div style="background: #FECACA; padding: 0.5rem; border-radius: 4px;"><strong>Deficiente (1)</strong></div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function generateSatisfaccion() {
+            const container = document.getElementById('sat-survey-container');
+            const saveBtn = document.getElementById('sat-save-btn');
+            
+            container.innerHTML = `
+                <div class="generation-status loading">
+                    <div class="spinner"></div>
+                    <h3>Generando encuesta de satisfacción...</h3>
+                    <p>Formato estándar para medir la reacción de participantes</p>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const survey = generateSatisfactionSurvey();
+                evaluationData.satisfaccion.items = survey;
+                displaySatisfactionSurvey(survey);
+                saveBtn.style.display = 'inline-flex';
+            }, 2000);
+        }
+
+        function generateSatisfactionSurvey() {
+            return [
+                "Los objetivos del curso se cumplieron satisfactoriamente",
+                "El contenido del curso fue relevante y útil",
+                "El facilitador demostró dominio del tema",
+                "Las actividades prácticas facilitaron el aprendizaje",
+                "Los materiales didácticos fueron de calidad",
+                "La organización y logística del curso fue adecuada",
+                "El tiempo asignado a cada tema fue apropiado",
+                "La metodología utilizada favoreció mi aprendizaje",
+                "Recomendaría este curso a otras personas",
+                "En general, mi satisfacción con el curso es alta"
+            ];
+        }
+
+        function displaySatisfactionSurvey(items) {
+            const container = document.getElementById('sat-survey-container');
+            container.innerHTML = `
+                <h3 style="color: var(--primary); margin-bottom: 1.5rem;">Evaluación de Satisfacción</h3>
+                <div style="margin-bottom: 2rem; padding: 1rem; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px;">
+                    <h4 style="color: #92400E; margin-bottom: 0.5rem;">Instrucciones:</h4>
+                    <p style="color: #92400E; margin: 0;">Por favor marque con una "X" la opción que mejor refleje su experiencia en este curso.</p>
+                </div>
+                <div style="background: white; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+                    <div class="scale-header">
+                        <div>Aspecto a Evaluar</div>
+                        <div>Excelente</div>
+                        <div>Bueno</div>
+                        <div>Regular</div>
+                        <div>Malo</div>
+                    </div>
+                    ${items.map(item => `
+                        <div class="satisfaction-scale">
+                            <div>${item}</div>
+                            <div style="text-align: center;">☐</div>
+                            <div style="text-align: center;">☐</div>
+                            <div style="text-align: center;">☐</div>
+                            <div style="text-align: center;">☐</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--border); border-radius: 8px;">
+                    <h4 style="color: var(--primary); margin-bottom: 1rem;">Comentarios y Sugerencias:</h4>
+                    <div style="border: 1px solid var(--border); height: 100px; border-radius: 8px; background: var(--light);"></div>
+                </div>
+            `;
+        }
+
+        function validateAndSave(type) {
+            // Validar que hay contenido generado
+            if ((type === 'diagnostica' || type === 'sumativa') && evaluationData[type].questions.length === 0) {
+                Swal.fire('Error', 'No hay preguntas para validar', 'error');
+                return;
+            }
+
+            if (type === 'formativa' && evaluationData[type].criteria.length === 0) {
+                Swal.fire('Error', 'No hay criterios para validar', 'error');
+                return;
+            }
+
+            if (type === 'satisfaccion' && evaluationData[type].items.length === 0) {
+                Swal.fire('Error', 'No hay encuesta para validar', 'error');
+                return;
+            }
+
+            Swal.fire({
+                title: `¿Validar ${getTypeDisplayName(type)}?`,
+                text: 'Una vez validado, el instrumento estará listo para su uso',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, validar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    evaluationData[type].validated = true;
+                    
+                    // Guardar en el sistema de datos
+                    const currentData = EC0301Manager.getData();
+                    currentData.evaluaciones = evaluationData;
+                    EC0301Manager.saveData(currentData, 'evaluaciones');
+                    
+                    // Ocultar botón de guardar
+                    document.getElementById(`${getTypePrefix(type)}-save-btn`).style.display = 'none';
+                    
+                    Swal.fire('Validado', `${getTypeDisplayName(type)} validada correctamente`, 'success');
+                }
+            });
+        }
+
+        function getTypeDisplayName(type) {
+            const names = {
+                'diagnostica': 'Evaluación Diagnóstica',
+                'formativa': 'Evaluación Formativa',
+                'sumativa': 'Evaluación Sumativa',
+                'satisfaccion': 'Evaluación de Satisfacción'
+            };
+            return names[type] || type;
+        }
+
+        function getTypePrefix(type) {
+            const prefixes = {
+                'diagnostica': 'diag',
+                'formativa': 'form',
+                'sumativa': 'sum',
+                'satisfaccion': 'sat'
+            };
+            return prefixes[type] || type;
+        }
+
+        // Suscribirse a cambios en la carta descriptiva
+        EC0301Manager.onDataChange('evaluaciones', (changedFields, fullData) => {
+            console.log('Datos actualizados desde carta descriptiva:', changedFields);
+            loadEvaluationData();
+        });
+    </script>
+</body>
+</html>
