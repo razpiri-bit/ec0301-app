@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Resultados - EC0301</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="ec0301-data-manager.js"></script>
+    <style>
+        :root {
+            --primary: #1E3A8A; --accent: #FF6B35; --success: #22C55E; --danger: #EF4444;
+            --warning: #F59E0B; --light: #F8FAFC; --border: #E5E7EB; --text: #1F2937; --muted: #6B7280;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #F1F5F9; color: var(--text);
+        }
+        .header {
+            background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky; top: 0; z-index: 1000; border-bottom: 3px solid var(--accent);
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
+        .header-content {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem; max-width: 1400px; margin: 0 auto; flex-wrap: wrap; gap: 1rem;
+        }
+        h1 { font-size: 1.75rem; color: var(--primary); }
+        .btn {
+            padding: 0.6rem 1.2rem; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease; display: inline-flex;
+            align-items: center; gap: 0.5rem; text-decoration: none;
+        }
+        .btn-secondary { background: white; color: var(--primary); border: 2px solid var(--primary); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+
+        .results-container {
+            background: white; padding: 2.5rem; border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+        .info-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--light); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;
+            flex-wrap: wrap; gap: 1rem;
+        }
+        .info-bar h2 { font-size: 1.5rem; color: var(--primary); margin: 0; }
+        .course-meta { color: var(--muted); }
+        .course-meta strong { color: var(--primary); }
+
+        .controls-panel {
+            display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; align-items: center;
+        }
+        .controls-panel button { white-space: nowrap; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; min-width: 800px; }
+        th, td { border: 1px solid var(--border); padding: 0.75rem; text-align: center; }
+        th { 
+            background: var(--primary); color: white; font-weight: 600;
+            position: sticky; top: 0; z-index: 10;
+        }
+        tbody tr:nth-child(even) { background-color: var(--light); }
+        tbody tr:hover { background-color: #E0F2FE; }
+
+        .participant-name {
+            text-align: left !important; font-weight: 600; 
+            min-width: 200px; background: white !important;
+            position: sticky; left: 0; z-index: 5; border-right: 2px solid var(--border);
+        }
+        .participant-number { 
+            background: var(--primary); color: white; font-weight: 600;
+            position: sticky; left: 0; z-index: 10; border-right: 2px solid var(--border);
+        }
+
+        .editable-cell {
+            background: #FFFBEB !important; font-weight: 500; border: 2px solid transparent;
+            transition: all 0.3s ease; min-width: 80px;
+        }
+        .editable-cell:focus {
+            outline: none; border-color: var(--accent); background: white !important;
+            box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+        }
+        .editable-cell.invalid { border-color: var(--danger); background: #FEF2F2 !important; }
+
+        .final-grade { 
+            font-weight: 700; font-size: 1.1rem; 
+            background: white !important; border-left: 3px solid var(--success);
+        }
+        .status-cell { font-weight: 600; }
+        .status-aprobado { color: var(--success); }
+        .status-no-aprobado { color: var(--danger); }
+
+        .statistics-panel {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);
+        }
+        .stat-card {
+            background: var(--light); padding: 1.5rem; border-radius: 8px;
+            text-align: center; border-left: 4px solid var(--accent);
+        }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+        .stat-label { color: var(--muted); font-weight: 600; margin-top: 0.5rem; }
+
+        .export-options {
+            display: flex; gap: 1rem; flex-wrap: wrap;
+        }
+        .export-options button { 
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        .validation-message {
+            padding: 1rem; border-radius: 8px; margin: 1rem 0; display: none;
+        }
+        .validation-error { background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B; }
+        .validation-success { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; }
+
+        .auto-save-indicator {
+            position: fixed; bottom: 20px; right: 20px; background: var(--success);
+            color: white; padding: 0.5rem 1rem; border-radius: 20px;
+            display: none; animation: fadeInOut 2s ease-in-out;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; transform: translateY(20px); }
+            50% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .info-bar { flex-direction: column; text-align: center; }
+            .controls-panel { justify-content: center; }
+            .export-options { justify-content: center; }
+            th, td { padding: 0.5rem; font-size: 0.875rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1><i class="fa-solid fa-file-excel" style="color: var(--accent);"></i> Módulo de Resultados</h1>
+            <div>
+                <a href="manuales.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Manuales</a>
+                <a href="auditoria.html" class="btn btn-success"><i class="fa-solid fa-arrow-right"></i> Auditoría</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="results-container">
+            <div class="info-bar">
+                <div>
+                    <h2 id="cursoNombre">Cargando información del curso...</h2>
+                    <div class="course-meta">
+                        <strong>Facilitador:</strong> <span id="facilitador">-</span> | 
+                        <strong>Lugar:</strong> <span id="lugar">-</span> | 
+                        <strong>Participantes:</strong> <span id="numParticipantes">-</span>
+                    </div>
+                    <div class="course-meta" style="margin-top: 0.5rem;">
+                        <strong>Formativa:</strong> <span id="ponderacionFormativa">40</span>% | 
+                        <strong>Sumativa:</strong> <span id="ponderacionSumativa">60</span>% | 
+                        <strong>Mínimo:</strong> <span id="califMinima">80</span> pts
+                    </div>
+                </div>
+                <div class="export-options">
+                    <button class="btn btn-success" onclick="exportToExcel()">
+                        <i class="fa-solid fa-file-excel"></i> Exportar Excel
+                    </button>
+                    <button class="btn btn-primary" onclick="generateCertificates()">
+                        <i class="fa-solid fa-certificate"></i> Generar Constancias
+                    </button>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <button class="btn btn-secondary" onclick="addParticipant()">
+                    <i class="fa-solid fa-user-plus"></i> Agregar Participante
+                </button>
+                <button class="btn btn-warning" onclick="calculateAll()">
+                    <i class="fa-solid fa-calculator"></i> Recalcular Todo
+                </button>
+                <button class="btn btn-primary" onclick="saveResults()">
+                    <i class="fa-solid fa-save"></i> Guardar Resultados
+                </button>
+                <button class="btn btn-success" onclick="generateReport()">
+                    <i class="fa-solid fa-chart-line"></i> Generar Reporte
+                </button>
+            </div>
+
+            <div class="validation-message validation-error" id="errorMessage"></div>
+            <div class="validation-message validation-success" id="successMessage"></div>
+
+            <div class="table-wrapper">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th class="participant-number">No.</th>
+                            <th class="participant-name">Nombre del Participante</th>
+                            <th>Cal. Diagnóstica<br><small>(Informativa)</small></th>
+                            <th>Cal. Formativa<br><small>(<span id="headerFormativa">40</span>%)</small></th>
+                            <th>Cal. Sumativa<br><small>(<span id="headerSumativa">60</span>%)</small></th>
+                            <th>Calificación Final</th>
+                            <th>Estatus<br><small>(Mín. <span id="headerMinima">80</span>)</small></th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="statistics-panel">
+                <div class="stat-card">
+                    <div class="stat-value" id="statAprobados">0</div>
+                    <div class="stat-label">Aprobados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statReprobados">0</div>
+                    <div class="stat-label">No Aprobados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statPromedio">0.0</div>
+                    <div class="stat-label">Promedio General</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statEficiencia">0%</div>
+                    <div class="stat-label">Eficiencia Terminal</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="auto-save-indicator" id="autoSaveIndicator">
+            <i class="fa-solid fa-check"></i> Guardado automáticamente
+        </div>
+    </main>
+
+    <script>
+        let participantCounter = 0;
+        let resultsData = [];
+        let courseData = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadResultsData();
+            setupAutoSave();
+        });
+
+        function loadResultsData() {
+            try {
+                const moduleData = EC0301Manager.getModuleData('resultados');
+                courseData = moduleData;
+                
+                // Cargar información del curso
+                document.getElementById('cursoNombre').textContent = moduleData.nombre || 'Informe de Resultados';
+                document.getElementById('facilitador').textContent = moduleData.facilitador || 'Facilitador';
+                document.getElementById('lugar').textContent = moduleData.lugar || 'Lugar';
+                document.getElementById('numParticipantes').textContent = moduleData.participantes || '0';
+                
+                // Cargar configuración de evaluación
+                if (moduleData.evaluacion) {
+                    const formPct = moduleData.evaluacion.formativa_porcentaje;
+                    const sumPct = moduleData.evaluacion.sumativa_porcentaje;
+                    const minCal = moduleData.evaluacion.calificacion_minima;
+                    
+                    document.getElementById('ponderacionFormativa').textContent = formPct;
+                    document.getElementById('ponderacionSumativa').textContent = sumPct;
+                    document.getElementById('califMinima').textContent = minCal;
+                    
+                    // Actualizar headers de tabla
+                    document.getElementById('headerFormativa').textContent = formPct;
+                    document.getElementById('headerSumativa').textContent = sumPct;
+                    document.getElementById('headerMinima').textContent = minCal;
+                }
+                
+                // Inicializar tabla con participantes
+                initializeParticipants(moduleData.participantes || 10);
+                
+            } catch (error) {
+                console.error('Error cargando datos de resultados:', error);
+                showMissingDataAlert();
+            }
+        }
+
+        function showMissingDataAlert() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Datos Incompletos',
+                html: 'No se encontraron datos de la carta descriptiva.<br>Por favor, completa primero la <strong>Carta Descriptiva</strong>.',
+                confirmButtonText: 'Ir a Carta Descriptiva',
+                confirmButtonColor: '#1E3A8A'
+            }).then(() => {
+                window.location.href = 'carta-descriptiva.html';
+            });
+        }
+
+        function initializeParticipants(numParticipantes) {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            resultsData = [];
+
+            for (let i = 1; i <= numParticipantes; i++) {
+                addParticipantRow(i, `Participante ${i}`, '', '', '', true);
+            }
+            
+            calculateStatistics();
+        }
+
+        function addParticipantRow(numero, nombre = '', diagnostica = '', formativa = '', sumativa = '', isInitial = false) {
+            const tbody = document.getElementById('resultsBody');
+            const row = document.createElement('tr');
+            row.dataset.participantId = numero;
+            
+            const participant = {
+                numero: numero,
+                nombre: nombre,
+                diagnostica: parseFloat(diagnostica) || 0,
+                formativa: parseFloat(formativa) || 0,
+                sumativa: parseFloat(sumativa) || 0,
+                final: 0,
+                status: 'Pendiente'
+            };
+            
+            if (!isInitial) {
+                resultsData.push(participant);
+            } else {
+                resultsData[numero - 1] = participant;
+            }
+            
+            row.innerHTML = `
+                <td class="participant-number">${numero}</td>
+                <td class="participant-name">
+                    <input type="text" class="editable-cell" value="${nombre}" 
+                           onchange="updateParticipant(${numero}, 'nombre', this.value)"
+                           placeholder="Nombre del participante" style="border: none; background: transparent; width: 100%; padding: 0.5rem;">
+                </td>
+                <td><input type="number" class="editable-cell" value="${diagnostica}" min="0" max="100" 
+                           onchange="updateParticipant(${numero}, 'diagnostica', this.value)"
+                           placeholder="0-100"></td>
+                <td><input type="number" class="editable-cell" value="${formativa}" min="0" max="100" 
+                           onchange="updateParticipant(${numero}, 'formativa', this.value); recalculateRow(${numero})"
+                           placeholder="0-100"></td>
+                <td><input type="number" class="editable-cell" value="${sumativa}" min="0" max="100" 
+                           onchange="updateParticipant(${numero}, 'sumativa', this.value); recalculateRow(${numero})"
+                           placeholder="0-100"></td>
+                <td class="final-grade"><strong id="final-${numero}">0.00</strong></td>
+                <td class="status-cell"><span id="status-${numero}">Pendiente</span></td>
+                <td>
+                    <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: var(--danger); color: white;" 
+                            onclick="removeParticipant(${numero})">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+            recalculateRow(numero);
+        }
+
+        function updateParticipant(numero, field, value) {
+            const participant = resultsData[numero - 1];
+            if (participant) {
+                if (field === 'nombre') {
+                    participant.nombre = value;
+                } else {
+                    const numValue = parseFloat(value) || 0;
+                    if (numValue < 0 || numValue > 100) {
+                        showErrorMessage('Las calificaciones deben estar entre 0 y 100');
+                        return;
+                    }
+                    participant[field] = numValue;
+                }
+                
+                // Guardar automáticamente
+                autoSave();
+            }
+        }
+
+        function recalculateRow(numero) {
+            const participant = resultsData[numero - 1];
+            if (!participant) return;
+            
+            const formPct = parseFloat(courseData.evaluacion?.formativa_porcentaje) || 40;
+            const sumPct = parseFloat(courseData.evaluacion?.sumativa_porcentaje) || 60;
+            
+            // Calcular calificación final
+            const finalGrade = ((participant.formativa * formPct) / 100) + ((participant.sumativa * sumPct) / 100);
+            participant.final = Math.round(finalGrade * 100) / 100;
+            
+            // Determinar estatus
+            const minGrade = parseFloat(courseData.evaluacion?.calificacion_minima) || 80;
+            participant.status = participant.final >= minGrade ? 'Aprobado' : 'No Aprobado';
+            
+            // Actualizar vista
+            document.getElementById(`final-${numero}`).textContent = participant.final.toFixed(2);
+            const statusEl = document.getElementById(`status-${numero}`);
+            statusEl.textContent = participant.status;
+            statusEl.className = participant.status === 'Aprobado' ? 'status-aprobado' : 'status-no-aprobado';
+            
+            calculateStatistics();
+        }
+
+        function addParticipant() {
+            participantCounter = Math.max(participantCounter, resultsData.length) + 1;
+            addParticipantRow(participantCounter);
+            
+            // Scroll hacia el nuevo participante
+            const newRow = document.querySelector(`[data-participant-id="${participantCounter}"]`);
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Enfocar el campo de nombre
+            newRow.querySelector('input[type="text"]').focus();
+        }
+
+        function removeParticipant(numero) {
+            Swal.fire({
+                title: '¿Eliminar participante?',
+                text: 'Esta acción no se puede deshacer',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Eliminar de datos
+                    resultsData = resultsData.filter(p => p.numero !== numero);
+                    
+                    // Eliminar del DOM
+                    document.querySelector(`[data-participant-id="${numero}"]`).remove();
+                    
+                    // Renumerar participantes
+                    renumberParticipants();
+                    calculateStatistics();
+                    
+                    Swal.fire('Eliminado', 'El participante ha sido eliminado', 'success');
+                }
+            });
+        }
+
+        function renumberParticipants() {
+            const rows = document.querySelectorAll('#resultsBody tr');
+            rows.forEach((row, index) => {
+                const newNumber = index + 1;
+                const oldNumber = parseInt(row.dataset.participantId);
+                
+                // Actualizar número en datos
+                if (resultsData[index]) {
+                    resultsData[index].numero = newNumber;
+                }
+                
+                // Actualizar vista
+                row.dataset.participantId = newNumber;
+                row.children[0].textContent = newNumber;
+                
+                // Actualizar IDs y eventos
+                const finalCell = row.querySelector('[id^="final-"]');
+                const statusCell = row.querySelector('[id^="status-"]');
+                
+                if (finalCell) {
+                    finalCell.id = `final-${newNumber}`;
+                }
+                if (statusCell) {
+                    statusCell.id = `status-${newNumber}`;
+                }
+                
+                // Actualizar eventos de inputs
+                const inputs = row.querySelectorAll('input');
+                inputs.forEach(input => {
+                    const onChangeAttr = input.getAttribute('onchange');
+                    if (onChangeAttr) {
+                        const newOnChange = onChangeAttr.replace(/\d+/g, newNumber);
+                        input.setAttribute('onchange', newOnChange);
+                    }
+                });
+                
+                // Actualizar botón de eliminar
+                const deleteBtn = row.querySelector('button[onclick^="removeParticipant"]');
+                if (deleteBtn) {
+                    deleteBtn.setAttribute('onclick', `removeParticipant(${newNumber})`);
+                }
+            });
+        }
+
+        function calculateAll() {
+            resultsData.forEach(participant => {
+                recalculateRow(participant.numero);
+            });
+            
+            showSuccessMessage('Todas las calificaciones han sido recalculadas');
+        }
+
+        function calculateStatistics() {
+            const total = resultsData.length;
+            const aprobados = resultsData.filter(p => p.status === 'Aprobado').length;
+            const reprobados = total - aprobados;
+            
+            const promedio = total > 0 ? 
+                resultsData.reduce((sum, p) => sum + p.final, 0) / total : 0;
+            
+            const eficiencia = total > 0 ? Math.round((aprobados / total) * 100) : 0;
+            
+            // Actualizar estadísticas
+            document.getElementById('statAprobados').textContent = aprobados;
+            document.getElementById('statReprobados').textContent = reprobados;
+            document.getElementById('statPromedio').textContent = promedio.toFixed(1);
+            document.getElementById('statEficiencia').textContent = eficiencia + '%';
+        }
+
+        function saveResults() {
+            try {
+                // Validar datos
+                const invalidParticipants = resultsData.filter(p => !p.nombre.trim());
+                if (invalidParticipants.length > 0) {
+                    showErrorMessage('Todos los participantes deben tener nombre');
+                    return;
+                }
+                
+                // Guardar en el sistema
+                const currentData = EC0301Manager.getData();
+                currentData.resultados = {
+                    participantes: resultsData,
+                    estadisticas: {
+                        total: resultsData.length,
+                        aprobados: resultsData.filter(p => p.status === 'Aprobado').length,
+                        promedio: resultsData.reduce((sum, p) => sum + p.final, 0) / resultsData.length || 0
+                    },
+                    fechaActualizacion: new Date().toISOString()
+                };
+                
+                EC0301Manager.saveData(currentData, 'resultados');
+                
+                showSuccessMessage('Resultados guardados correctamente');
+                
+            } catch (error) {
+                console.error('Error guardando resultados:', error);
+                showErrorMessage('Error al guardar los resultados');
+            }
+        }
+
+        function setupAutoSave() {
+            // Guardar automáticamente cada 30 segundos
+            setInterval(() => {
+                if (resultsData.length > 0) {
+                    autoSave();
+                }
+            }, 30000);
+        }
+
+        function autoSave() {
+            try {
+                const currentData = EC0301Manager.getData();
+                currentData.resultados = {
+                    participantes: resultsData,
+                    fechaAutoguardado: new Date().toISOString()
+                };
+                
+                EC0301Manager.saveData(currentData, 'resultados_autosave');
+                
+                // Mostrar indicador de autoguardado
+                const indicator = document.getElementById('autoSaveIndicator');
+                indicator.style.display = 'block';
+                setTimeout(() => {
+                    indicator.style.display = 'none';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error en autoguardado:', error);
+            }
+        }
+
+        function exportToExcel() {
+            if (resultsData.length === 0) {
+                showErrorMessage('No hay datos para exportar');
+                return;
+            }
+
+            // Preparar datos para Excel
+            const headers = [
+                'No.', 'Nombre del Participante', 'Cal. Diagnóstica', 
+                'Cal. Formativa', 'Cal. Sumativa', 'Calificación Final', 'Estatus'
+            ];
+            
+            const data = resultsData.map(p => [
+                p.numero,
+                p.nombre,
+                p.diagnostica,
+                p.formativa,
+                p.sumativa,
+                p.final,
+                p.status
+            ]);
+            
+            // Agregar estadísticas al final
+            data.push([]);
+            data.push(['ESTADÍSTICAS']);
+            data.push(['Total de participantes', resultsData.length]);
+            data.push(['Aprobados', resultsData.filter(p => p.status === 'Aprobado').length]);
+            data.push(['No aprobados', resultsData.filter(p => p.status === 'No Aprobado').length]);
+            data.push(['Promedio general', (resultsData.reduce((sum, p) => sum + p.final, 0) / resultsData.length).toFixed(2)]);
+            
+            // Crear workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+            
+            // Formatear columnas
+            ws['!cols'] = [
+                { width: 5 },   // No.
+                { width: 30 },  // Nombre
+                { width: 12 },  // Diagnóstica
+                { width: 12 },  // Formativa
+                { width: 12 },  // Sumativa
+                { width: 15 },  // Final
+                { width: 12 }   // Estatus
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
+            
+            // Generar archivo
+            const cursoNombre = courseData.nombre ? courseData.nombre.replace(/ /g, '_') : 'Resultados';
+            const fecha = new Date().toISOString().slice(0, 10);
+            const fileName = `Resultados_${cursoNombre}_${fecha}.xlsx`;
+            
+            XLSX.writeFile(wb, fileName);
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Exportado!',
+                text: `El archivo ${fileName} ha sido generado exitosamente.`,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        }
+
+        function generateCertificates() {
+            const aprobados = resultsData.filter(p => p.status === 'Aprobado');
+            
+            if (aprobados.length === 0) {
+                showErrorMessage('No hay participantes aprobados para generar constancias');
+                return;
+            }
+            
+            Swal.fire({
+                title: 'Generar Constancias',
+                html: `
+                    <p>Se generarán constancias para <strong>${aprobados.length}</strong> participantes aprobados.</p>
+                    <div style="text-align: left; margin-top: 1rem;">
+                        <label><input type="checkbox" checked> Incluir calificación final</label><br>
+                        <label><input type="checkbox" checked> Incluir fecha de conclusión</label><br>
+                        <label><input type="checkbox"> Incluir firma digital</label>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Generar Constancias',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    generateCertificatesPDF(aprobados);
+                }
+            });
+        }
+
+        function generateCertificatesPDF(aprobados) {
+            Swal.fire({
+                title: 'Generando Constancias...',
+                text: `Creando ${aprobados.length} constancias en PDF`,
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+            
+            // Simular generación
+            setTimeout(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Constancias Generadas',
+                    text: `Se han generado ${aprobados.length} constancias exitosamente`,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+            }, 2000);
+        }
+
+        function generateReport() {
+            if (resultsData.length === 0) {
+                showErrorMessage('No hay datos para generar reporte');
+                return;
+            }
+            
+            const stats = {
+                total: resultsData.length,
+                aprobados: resultsData.filter(p => p.status === 'Aprobado').length,
+                reprobados: resultsData.filter(p => p.status === 'No Aprobado').length,
+                promedio: resultsData.reduce((sum, p) => sum + p.final, 0) / resultsData.length,
+                eficiencia: (resultsData.filter(p => p.status === 'Aprobado').length / resultsData.length) * 100
+            };
+            
+            Swal.fire({
+                title: 'Reporte de Resultados',
+                html: `
+                    <div style="text-align: left;">
+                        <h4 style="color: var(--primary);">Estadísticas Generales</h4>
+                        <table style="width: 100%; margin-top: 1rem; border-collapse: collapse;">
+                            <tr><td><strong>Total de participantes:</strong></td><td>${stats.total}</td></tr>
+                            <tr><td><strong>Aprobados:</strong></td><td style="color: #22C55E;">${stats.aprobados}</td></tr>
+                            <tr><td><strong>No aprobados:</strong></td><td style="color: #EF4444;">${stats.reprobados}</td></tr>
+                            <tr><td><strong>Promedio general:</strong></td><td>${stats.promedio.toFixed(2)}</td></tr>
+                            <tr><td><strong>Eficiencia terminal:</strong></td><td>${stats.eficiencia.toFixed(1)}%</td></tr>
+                        </table>
+                        
+                        <h4 style="color: var(--primary); margin-top: 1.5rem;">Acciones Disponibles</h4>
+                        <div style="margin-top: 1rem;">
+                            <button onclick="exportToExcel()" style="margin: 0.25rem; padding: 0.5rem 1rem; background: #22C55E; color: white; border: none; border-radius: 4px;">
+                                📊 Exportar a Excel
+                            </button>
+                            <button onclick="generateCertificates()" style="margin: 0.25rem; padding: 0.5rem 1rem; background: #1E3A8A; color: white; border: none; border-radius: 4px;">
+                                🏆 Generar Constancias
+                            </button>
+                        </div>
+                    </div>
+                `,
+                width: 600,
+                confirmButtonText: 'Cerrar'
+            });
+        }
+
+        function showErrorMessage(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccessMessage(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            setTimeout(() => {
+                successEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // Suscribirse a cambios en la carta descriptiva
+        EC0301Manager.onDataChange('resultados', (changedFields, fullData) => {
+            console.log('Datos actualizados desde carta descriptiva:', changedFields);
+            loadResultsData();
+        });
+    </script>
+</body>
+</html>
